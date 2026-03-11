@@ -31,19 +31,25 @@ fn main() {
 
             std::thread::spawn(move || {
                 // get http request
-                let mut buffer = [0u8; 1024];
+                let mut buffer = [0u8; 8192];
                 let read_bytes = read(client_fd, buffer.as_mut_ptr() as *mut c_void, buffer.len());
                 if read_bytes < 0 { panic!("read error"); }
-                //println!("read_bytes: {}", std::str::from_utf8(&buffer[..read_bytes as usize]).unwrap());
+                let req_content = std::str::from_utf8_mut(&mut buffer[..read_bytes as usize]).unwrap();
+                let req_line: Vec<&str> = req_content.split(" ").collect();
+                if req_line.len() < 2 { return; }
+                let path = req_line[1];
+                println!("path is {}", path.strip_prefix("/").unwrap());
 
                 // return http response
-                let content = std::fs::read_to_string("index.html").unwrap();
+                let content = std::fs::read_to_string(path.strip_prefix("/").unwrap()).unwrap();
                 let status = String::from("HTTP/1.1 200 OK");
                 let content_len = content.len().to_string();
                 let res = status + "\r\n" + "Content-Length: " + &content_len + "\r\n\r\n" + &content;
                 //println!("message: {}", &message);
                 let write_bytes = write(client_fd, res.as_bytes().as_ptr() as *const c_void, res.len());
                 if write_bytes < 0 { panic!("write to client file descriptor filed"); }
+
+                close(client_fd);
             });
             
         }
