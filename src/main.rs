@@ -37,9 +37,12 @@ fn main() {
                 //println!("read_bytes: {}", std::str::from_utf8(&buffer[..read_bytes as usize]).unwrap());
 
                 // return http response
-                let message = String::from("HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, World!");
+                let content = std::fs::read_to_string("index.html").unwrap();
+                let status = String::from("HTTP/1.1 200 OK");
+                let content_len = content.len().to_string();
+                let res = status + "\r\n" + "Content-Length: " + &content_len + "\r\n\r\n" + &content;
                 //println!("message: {}", &message);
-                let write_bytes = write(client_fd, message.as_bytes().as_ptr() as *const c_void, message.len());
+                let write_bytes = write(client_fd, res.as_bytes().as_ptr() as *const c_void, res.len());
                 if write_bytes < 0 { panic!("write to client file descriptor filed"); }
             });
             
