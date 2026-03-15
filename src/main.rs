@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Add};
 
 use libc::*;
 
@@ -25,23 +25,19 @@ impl HttpResponse {
         }
     }
 
-    fn to_string(&self) -> String {      
-        let response_line = String::from(
-            self.version + 
-            " " + 
-            &self.status.to_string() +
-            " " +
-            self._status_message(self.status) +
-            "\r\n"
-        );
+    fn new() -> HttpResponse {
+        HttpResponse { version: String::new(), status: 0, headers: HashMap::new(), body: String::new() }
+    }
 
-        let headers = self.headers
-            .iter()
-            .map(|(k, v)| {
-                k + ": " + v + "\r\n"
-            })
-            .collect();
-            
+    fn create_response_contents(&self) -> String {      
+        let response_line = format!("{} {} {}\r\n", self.version, self.status.to_string(), Self::_status_message(self.status));
+
+        let mut headers = String::new();
+        for (k, v) in self.headers.iter() {
+            headers.push_str(&format!("{}: {}\r\n", k, v));
+        }
+
+        format!("{}{}\r\n{}", response_line, headers, self.body)
     }
 }
 
@@ -129,18 +125,35 @@ fn main() {
                     return;
                 }
 
-                // create response
+                // analyze http request
                 let req_contents = std::str::from_utf8_mut(&mut buffer[..read_bytes as usize]).unwrap();
                 
                 let Some(http_req) = parse_request(req_contents) else { return; };
 
                 // return http response
-                let content = std::fs::read_to_string(http_req.path.strip_prefix("/").unwrap()).unwrap();
-                let status = String::from("HTTP/1.1 200 OK");
-                let content_len = content.len().to_string();
-                let res = status + "\r\n" + "Content-Length: " + &content_len + "\r\n\r\n" + &content;
-                //println!("message: {}", &message);
-                let write_bytes = write(client_fd, res.as_bytes().as_ptr() as *const c_void, res.len());
+                let mut body = String::new();
+                match http_req.path.as_str() {
+                    "/" => { body = std::fs::read_to_string("ProjectStaticQuiz-/index.html").unwrap(); }
+                    "/ProjectStaticQuiz-" => { body = std::fs::read_to_string("ProjectStaticQuiz-/index.html").unwrap(); },
+                    "/ProjectStaticQuiz-/" => { body = std::fs::read_to_string("ProjectStaticQuiz-/index.html").unwrap(); },
+                    _ => { body = std::fs::read_to_string(http_req.path.strip_prefix("/").unwrap()).unwrap(); }
+                }
+
+                let mut headers = HashMap::new();
+                headers.insert(String::from("Content-Length"), body.as_bytes().len().to_string());
+
+                let res = HttpResponse{
+                    version: String::from("HTTP/1.1"),
+                    status: 200,
+                    headers,
+                    body,
+                };
+
+                let write_bytes = write(
+                    client_fd,
+                    res.create_response_contents().as_bytes().as_ptr() as *const c_void,
+                    res.create_response_contents().as_bytes().len()
+                );
                 if write_bytes < 0 { panic!("write to client file descriptor filed"); }
 
                 close(client_fd);
