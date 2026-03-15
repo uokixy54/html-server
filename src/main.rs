@@ -8,6 +8,43 @@ struct HttpRequest {
     version: String,
     headers: HashMap<String, String>
 }
+impl HttpRequest {
+    fn parse_request(raw_request: &str) -> Option<Self> {
+        // parse request line
+        let request_line: Vec<&str> = raw_request.lines().next()?.split(" ").collect();
+    
+        if request_line.get(0) != Some(&"GET") {
+            return None;
+        }
+    
+        if let None = request_line.get(1) {
+            return None;
+        }
+    
+        if let None = request_line.get(2) {
+            return None;
+        }
+    
+        // parse request headers
+        let mut headers = HashMap::new();
+        raw_request
+            .lines()
+            .skip(1)
+            .for_each(|line| {
+                if let Some((k, v)) = line.split_once(": ") {
+                    headers.insert(k.to_string(), v.to_string());
+                }
+            });
+    
+        Some(Self {
+            method: request_line[0].to_string(),
+            path: request_line[1].to_string(),
+            version: request_line[2].to_string(),
+            headers,
+        })
+    
+    }
+}
 
 struct HttpResponse {
     version: String,
@@ -121,10 +158,9 @@ fn main() {
                     return;
                 }
 
-                // analyze http request
-                let req_contents = std::str::from_utf8_mut(&mut buffer[..read_bytes as usize]).unwrap();
-                
-                let Some(http_req) = parse_request(req_contents) else { return; };
+                // parse http request
+                let raq_request = std::str::from_utf8_mut(&mut buffer[..read_bytes as usize]).unwrap();          
+                let Some(http_req) = HttpRequest::parse_request(raq_request) else { return; };
 
                 // return http response
                 let mut body = String::new();
