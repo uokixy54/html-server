@@ -25,10 +25,6 @@ impl HttpResponse {
         }
     }
 
-    fn new() -> HttpResponse {
-        HttpResponse { version: String::new(), status: 0, headers: HashMap::new(), body: String::new() }
-    }
-
     fn create_response_contents(&self) -> String {      
         let response_line = format!("{} {} {}\r\n", self.version, self.status.to_string(), Self::_status_message(self.status));
 
